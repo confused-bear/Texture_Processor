@@ -12,7 +12,11 @@ from PIL import Image
 import numpy as np
 
 # -------------------- 配置 --------------------
-TEXCONV = "texconv.exe"
+if getattr(sys, 'frozen', False):
+    # 打包后，texconv.exe 应该被 PyInstaller 收集到临时目录
+    TEXCONV = os.path.join(sys._MEIPASS, 'texconv.exe')
+else:
+    TEXCONV = "texconv.exe"
 PRESET_FILE = "packing_presets.json"
 LANG_FILE = "lang.json"
 RULES_FILE = "match_rules.json"
