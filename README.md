@@ -1,7 +1,7 @@
 [![en](https://img.shields.io/badge/lang-en-red.svg)](https://github.com/confused-bear/Texture_Processor/blob/main/README.md)
 [![zh](https://img.shields.io/badge/lang-zh-blue.svg)](https://github.com/confused-bear/Texture_Processor/blob/main/README.zh.md)
 
-<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/ea7903e9-f4e7-4f87-b3c2-158d20a57975" />
+<img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/ba877847-dc4a-47b7-bde0-770e5581cd4a" />
 
 # Texture_Processor
 
