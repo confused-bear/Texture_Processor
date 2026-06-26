@@ -6,7 +6,7 @@
 
 ## 安装方法：
 
-下载release里的exe和仓库里的texconv.exe到同一个文件夹，点击Texture_Processor.exe运行程序
+下载release里的Texture_Processor.exe和仓库里的texconv.exe到同一个文件夹，点击Texture_Processor.exe运行程序
 
 ## 使用方法：
 
