@@ -9,7 +9,7 @@ A software tool for batch processing PBR textures – no more having to open SP 
 
 ## Installation:
 
-Download Texture_Processor.exe from the ‘release’ folder and texconv.exe from the ‘repository’ folder into the same folder, then click Texture_Processor.exe to run the programme.
+Download Texture_Processor.exe from release.
 
 ## How to use:
 
@@ -21,7 +21,7 @@ Download Texture_Processor.exe from the ‘release’ folder and texconv.exe fro
 
 4. Click ‘Start’ to begin batch processing, and wait for the textures to be processed.
 
-## We welcome your testing and feedback.
+## We welcome your testing and feedback
 
 ## Dependencies
 
