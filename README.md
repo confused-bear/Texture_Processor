@@ -1,6 +1,10 @@
 <img width="2560" height="1600" alt="image" src="https://github.com/user-attachments/assets/fa94574e-51a4-4161-8ce0-1927fdb6c40d" />
 
-一个批量处理PBR贴图的软件，再也不用进SP一个个导出啦 
+一个批量处理PBR贴图的软件，再也不用进SP一个个导出啦
+
+安装方法：
+
+下载release里的exe和仓库里的texconv.exe到同一个文件夹，点击Texture_Processor.exe运行程序
 
 使用方法：
 
