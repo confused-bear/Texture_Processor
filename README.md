@@ -2,24 +2,24 @@
 
 # Texture_Processor
 
-一个批量处理PBR贴图的软件，再也不用进SP一个个导出啦
+A software tool for batch processing PBR textures – no more having to open SP one by one to export them!
 
-## 安装方法：
+## Installation:
 
-下载release里的Texture_Processor.exe和仓库里的texconv.exe到同一个文件夹，点击Texture_Processor.exe运行程序
+Download Texture_Processor.exe from the ‘release’ folder and texconv.exe from the ‘repository’ folder into the same folder, then click Texture_Processor.exe to run the programme.
 
-## 使用方法：
+## How to use:
 
-1.指定你下载的素材所在文件夹,可选Mipmap生成和半透材质预乘alpha 
+1. Specify the folder containing your downloaded assets; you can optionally enable mipmap generation and pre-multiply alpha for semi-transparent materials. 
 
-2.设置输出三张dds贴图分辨率（DDS格式都是ARGB 8:8:8:8），默认漫反射4K，法线2K，通道2K 
+2. Set the resolution for the three DDS textures to be output (all DDS files are ARGB 8:8:8:8). The defaults are 4K for diffuse, 2K for normal and 2K for channel.
 
-3.设置通道贴图组合，可自定义配置并保存自定义预设，设置输出的通道贴图后缀名
+3. Configure the channel texture combination; you can customise settings and save custom presets, and set the file extension for the output channel textures.
 
-4.点击开始批量处理，等待贴图处理完成
+4. Click ‘Start’ to begin batch processing, and wait for the textures to be processed.
 
-## 欢迎测试反馈
+## We welcome your testing and feedback.
 
-本工具使用了 Microsoft 的 texconv.exe，它属于 DirectXTex 工具集的一部分。 Copyright (c) Microsoft Corporation.
+## Dependencies
 
 This tool uses Microsoft’s texconv.exe, which forms part of the DirectXTex toolset.  Copyright (c) Microsoft Corporation.
