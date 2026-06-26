@@ -5,8 +5,9 @@ import threading
 import json
 import re
 from pathlib import Path
+from PIL import Image, ImageTk
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext, simpledialog, Menu
+from tkinter import ttk, filedialog, messagebox, scrolledtext, simpledialog, Menu, colorchooser
 from PIL import Image
 import numpy as np
 
@@ -56,6 +57,7 @@ DEFAULT_PRESETS = {
 STRINGS = {
     "zh": {
         "title": "PBR 贴图批量处理 & 通道打包工具",
+        "theme_menu": "主题",
         "source_group": "源文件夹 & 输出选项",
         "source_label": "资产根目录:",
         "browse": "浏览",
@@ -81,7 +83,7 @@ STRINGS = {
         "rules_menu": "编辑匹配规则",
         "help_menu": "帮助",
         "about_menu": "关于",
-        "about_text": "作者: William_Wang (Confused_Bear)\n使用 DeepSeek Vibe Coding 制作",
+        "about_text": "作者: William_Wang (Confused_Bear)\n邮箱: 2540351498@qq.com\n协议: Apache-2.0 License\n使用 DeepSeek Vibe Coding 制作",
         "dir_error": "错误",
         "dir_error_msg": "请先选择有效的资产根目录",
         "texconv_missing": "texconv.exe 未找到，请将其放在程序同目录下。",
@@ -121,6 +123,7 @@ STRINGS = {
     },
     "en": {
         "title": "PBR Texture Batch Processor & Channel Packer",
+        "theme_menu": "Theme",
         "source_group": "Source Folder & Output Options",
         "source_label": "Asset Root:",
         "browse": "Browse",
@@ -146,7 +149,7 @@ STRINGS = {
         "rules_menu": "Edit Matching Rules",
         "help_menu": "Help",
         "about_menu": "About",
-        "about_text": "Author: William_Wang (Confused_Bear)\nMade with DeepSeek Vibe Coding",
+        "about_text": "Author: William_Wang (Confused_Bear)\nEmail: 2540351498@qq.com\nLicense: Apache-2.0\nMade with DeepSeek Vibe Coding",
         "dir_error": "Error",
         "dir_error_msg": "Please select a valid asset root directory",
         "texconv_missing": "texconv.exe not found. Place it in the same folder as the program.",
@@ -186,6 +189,7 @@ STRINGS = {
     },
     "ja": {
         "title": "PBRテクスチャバッチ処理＆チャンネルパッカー",
+        "theme_menu": "テーマ",
         "source_group": "ソースフォルダ & 出力オプション",
         "source_label": "アセットルート:",
         "browse": "参照",
@@ -211,7 +215,7 @@ STRINGS = {
         "rules_menu": "マッチングルール編集",
         "help_menu": "ヘルプ",
         "about_menu": "について",
-        "about_text": "作者: William_Wang (Confused_Bear)\nDeepSeek Vibe Coding で作成",
+        "about_text": "作者: William_Wang (Confused_Bear)\nメール: 2540351498@qq.com\nライセンス: Apache-2.0\nDeepSeek Vibe Coding で作成",
         "dir_error": "エラー",
         "dir_error_msg": "有効なアセットルートディレクトリを選択してください",
         "texconv_missing": "texconv.exe が見つかりません。プログラムと同じフォルダに置いてください。",
@@ -251,6 +255,7 @@ STRINGS = {
     },
     "ko": {
         "title": "PBR 텍스처 배치 처리 및 채널 패커",
+        "theme_menu": "테마",
         "source_group": "소스 폴더 & 출력 옵션",
         "source_label": "에셋 루트:",
         "browse": "찾아보기",
@@ -276,7 +281,7 @@ STRINGS = {
         "rules_menu": "매칭 규칙 편집",
         "help_menu": "도움말",
         "about_menu": "정보",
-        "about_text": "제작자: William_Wang (Confused_Bear)\nDeepSeek Vibe Coding으로 제작",
+        "about_text": "제작자: William_Wang (Confused_Bear)\n이메일: 2540351498@qq.com\n라이선스: Apache-2.0\nDeepSeek Vibe Coding으로 제작",
         "dir_error": "오류",
         "dir_error_msg": "유효한 에셋 루트 디렉토리를 선택하세요",
         "texconv_missing": "texconv.exe를 찾을 수 없습니다. 프로그램과 같은 폴더에 넣어주세요.",
@@ -316,6 +321,44 @@ STRINGS = {
     }
 }
 
+THEMES = {
+    "浅色": {
+        "name": "浅色",
+        "bg": "#ffffff",
+        "card_bg": "#ffffff",
+        "accent": "#4a90d9",
+        "accent_hover": "#357abd",
+        "text": "#333333",
+        "header": "#2c3e50",
+        "entry_bg": "#ffffff",
+        "entry_border": "#d0d5dd",
+        "progress_trough": "#e0e0e0",
+        "button_text": "white",
+        "log_bg": "#ffffff",
+        "log_fg": "#333333",
+        "menu_bg": "#ffffff",
+        "menu_fg": "#333333",
+    },
+    "深色": {
+        "name": "深色",
+        "bg": "#2b2b3c",
+        "card_bg": "#2b2b3c",
+        "accent": "#6c5ce7",
+        "accent_hover": "#a29bfe",
+        "text": "#dcdcdc",
+        "header": "#a29bfe",
+        "entry_bg": "#3a3a4a",
+        "entry_border": "#555566",
+        "progress_trough": "#3a3a4a",
+        "button_text": "white",
+        "log_bg": "#2b2b3c",
+        "log_fg": "#dcdcdc",
+        "menu_bg": "#2b2b3c",
+        "menu_fg": "#dcdcdc",
+    },
+    # 未来可继续添加更多主题...
+}
+
 
 class TextureProcessorApp:
     def __init__(self, root):
@@ -325,25 +368,52 @@ class TextureProcessorApp:
         self.current_lang = self.lang.get()
         self.lang.trace_add('write', self._on_lang_change_full)
 
+        # 加载主题设置
+        self.current_theme = tk.StringVar(value="浅色")
+        self._load_theme()
+
+        # 应用当前主题到全局颜色变量（后续所有控件使用这些变量）
+        self._apply_theme_colors()
+
         self._load_match_rules()
 
         self.root.title(self.tr("title"))
-        self.root.geometry("720x850")
+        self.root.geometry("800x870")
         self.root.resizable(True, True)
-        self.root.configure(bg='#f5f5f5')
+        self.root.configure(bg=self.bg_color)
 
         self.default_font = ("Microsoft YaHei UI", 9)
         self.bold_font = ("Microsoft YaHei UI", 10, "bold")
 
+        # ---------- 样式与主题 ----------
         style = ttk.Style()
         style.theme_use('clam')
-        style.configure('.', font=self.default_font, background='#f5f5f5')
-        style.configure('TLabel', background='#f5f5f5')
-        style.configure('TButton', font=self.default_font)
-        style.configure('TEntry', font=self.default_font)
-        style.configure('TCheckbutton', background='#f5f5f5')
-        style.configure('TCombobox', font=self.default_font)
-        style.configure('TLabelframe.Label', font=self.bold_font)
+        style.configure('.', background=self.bg_color, foreground=self.text_color)
+        style.configure('TLabel', background=self.bg_color)
+        style.configure('TLabelframe', background=self.card_bg, bordercolor=self.entry_border, relief='solid')
+        style.configure('TLabelframe.Label', background=self.card_bg, foreground=self.header_color, font=self.bold_font)
+        style.configure('TButton', background=self.accent, foreground=self.button_text, borderwidth=0, focusthickness=0, padding=(10,5))
+        style.map('TButton', background=[('active', self.accent_hover), ('disabled', '#cccccc')])
+        style.configure('TEntry', fieldbackground=self.entry_bg, foreground=self.text_color, bordercolor=self.entry_border)
+        style.configure('TCombobox', fieldbackground=self.entry_bg, foreground=self.text_color, bordercolor=self.entry_border)
+        style.map('TCombobox',
+          fieldbackground=[('readonly', self.entry_bg), ('disabled', self.entry_bg)],
+          foreground=[('readonly', self.text_color), ('disabled', self.text_color)])
+        style.configure('TProgressbar', troughcolor=self.progress_trough, background=self.accent)
+        style.configure('Accent.TButton', font=('Microsoft YaHei UI', 10, 'bold'), padding=8)
+        pause_bg = '#f39c12'
+        cancel_bg = '#e74c3c'
+        btn_fg = '#ffffff'
+        style.configure('Pause.TButton', background=pause_bg, foreground=btn_fg)
+        style.configure('Cancel.TButton', background=cancel_bg, foreground=btn_fg)
+        style.map('Pause.TButton',
+                  background=[('disabled', '#cccccc')],
+                  foreground=[('disabled', btn_fg)])
+        style.map('Cancel.TButton',
+                  background=[('disabled', '#cccccc')],
+                  foreground=[('disabled', btn_fg)])
+
+        self._load_images()
 
         self.base_dir = tk.StringVar()
         self.overwrite = tk.BooleanVar(value=False)
@@ -406,9 +476,17 @@ class TextureProcessorApp:
             self.root.destroy()
             sys.exit(0)
         else:
-            self.current_lang = new_lang
-            self._refresh_texts()
-            self._rebuild_menu()
+            try:
+                self.current_lang = new_lang
+                self._refresh_texts()
+                # 延迟 10ms 重建菜单，等待当前菜单事件完全结束
+                self.root.after(10, self._rebuild_menu)
+            except Exception as e:
+                # 回退操作
+                self.current_lang = self.lang.get()  # 恢复旧值（实际上已被改成新值，但立即改回）
+                self._refresh_texts()
+                self.root.after(10, self._rebuild_menu)
+                messagebox.showerror("语言切换失败", f"无法切换到所选语言，已恢复原语言。\n错误：{e}")
 
     def _save_language(self):
         with open(LANG_FILE, 'w', encoding='utf-8') as f:
@@ -448,6 +526,161 @@ class TextureProcessorApp:
         with open(PRESET_FILE, 'w', encoding='utf-8') as f:
             json.dump(self.presets, f, indent=2, ensure_ascii=False)
 
+    def _load_theme(self):
+    #从文件加载主题设置，若没有则默认浅色
+        try:
+            with open("theme.json", "r") as f:
+                data = json.load(f)
+                theme = data.get("theme", "浅色")
+                if theme in THEMES:
+                    self.current_theme.set(theme)
+                custom_bg = data.get("custom_bg", None)
+                if theme == "自定义" and custom_bg:
+                    THEMES["自定义"] = THEMES["浅色"].copy()
+                    THEMES["自定义"]["bg"] = custom_bg
+                    THEMES["自定义"]["card_bg"] = custom_bg
+                    # 自动调整文本色（根据背景亮度）
+                    THEMES["自定义"]["text"] = "#ffffff" if sum(int(custom_bg[i:i+2],16) for i in (1,3,5)) < 384 else "#333333"
+                    THEMES["自定义"]["name"] = "自定义"
+                    self.current_theme.set("自定义")
+        except:
+            pass
+
+    def _apply_theme_colors(self):
+    #将当前主题的颜色加载到 self.xxx 变量中
+        theme = THEMES.get(self.current_theme.get(), THEMES["浅色"])
+        self.bg_color = theme["bg"]
+        self.card_bg = theme["card_bg"]
+        self.accent = theme["accent"]
+        self.accent_hover = theme["accent_hover"]
+        self.text_color = theme["text"]
+        self.header_color = theme["header"]
+        self.entry_bg = theme["entry_bg"]
+        self.entry_border = theme["entry_border"]
+        self.progress_trough = theme["progress_trough"]
+        self.button_text = theme["button_text"]
+        self.log_bg = theme["log_bg"]
+        self.log_fg = theme["log_fg"]
+        self.menu_bg = theme["menu_bg"]
+        self.menu_fg = theme["menu_fg"]
+
+    def _change_theme(self):
+    #切换预设主题
+        self._apply_theme_colors()
+        self._refresh_styles()
+        self._save_theme()
+
+    def _custom_background(self):
+        from tkinter import colorchooser
+        color = colorchooser.askcolor(title="选择背景颜色", initialcolor=self.bg_color)
+        if color and color[1]:
+            hex_color = color[1]
+            # 计算衍生卡片背景色（亮度加减15%）
+            r, g, b = int(hex_color[1:3],16), int(hex_color[3:5],16), int(hex_color[5:7],16)
+            brightness = (r*299 + g*587 + b*114) / 1000
+            # 如果背景偏暗，卡片变亮一点；偏亮则变暗
+            offset = 25 if brightness < 128 else -25
+            cr = max(0, min(255, r + offset))
+            cg = max(0, min(255, g + offset))
+            cb = max(0, min(255, b + offset))
+            card_color = f"#{cr:02x}{cg:02x}{cb:02x}"
+
+            THEMES["自定义"] = THEMES["浅色"].copy()
+            THEMES["自定义"]["bg"] = hex_color
+            THEMES["自定义"]["card_bg"] = card_color
+            # 智能设置文本颜色
+            THEMES["自定义"]["text"] = "#ffffff" if brightness < 128 else "#333333"
+            THEMES["自定义"]["entry_bg"] = card_color       # 输入框背景同卡片
+            THEMES["自定义"]["log_bg"] = card_color          # 日志框背景同卡片
+            THEMES["自定义"]["entry_border"] = "#888" if brightness < 128 else "#ccc"
+            THEMES["自定义"]["progress_trough"] = card_color if brightness < 128 else "#e0e0e0"
+            THEMES["自定义"]["name"] = "自定义"
+            self.current_theme.set("自定义")
+            self._apply_theme_colors()
+            self._refresh_styles()
+            self._save_theme()
+
+    def _refresh_styles(self):
+        style = ttk.Style()
+        style.configure('.', background=self.bg_color, foreground=self.text_color)
+        style.configure('TLabel', background=self.bg_color)
+        style.configure('TLabelframe', background=self.card_bg, bordercolor=self.entry_border)
+        style.configure('TLabelframe.Label', background=self.card_bg, foreground=self.header_color)
+        style.configure('TButton', background=self.accent, foreground=self.button_text)
+        style.map('TButton', background=[('active', self.accent_hover), ('disabled', '#cccccc')])
+        style.configure('TEntry', fieldbackground=self.entry_bg, foreground=self.text_color, bordercolor=self.entry_border)
+        style.configure('TCombobox', fieldbackground=self.entry_bg, foreground=self.text_color, bordercolor=self.entry_border)
+        style.map('TCombobox',
+                  fieldbackground=[('readonly', self.entry_bg), ('disabled', self.entry_bg)],
+                  foreground=[('readonly', self.text_color), ('disabled', self.text_color)])
+        style.configure('TProgressbar', troughcolor=self.progress_trough, background=self.accent)
+        style.configure('Accent.TButton', font=('Microsoft YaHei UI', 10, 'bold'), padding=8)
+
+        # 暂停/取消按钮：始终保持亮色背景 + 白色文字，禁用时灰色
+        pause_bg = '#f39c12'
+        cancel_bg = '#e74c3c'
+        btn_fg = '#ffffff'
+        style.configure('Pause.TButton', background=pause_bg, foreground=btn_fg)
+        style.configure('Cancel.TButton', background=cancel_bg, foreground=btn_fg)
+        style.map('Pause.TButton',
+                  background=[('disabled', '#cccccc')],
+                  foreground=[('disabled', btn_fg)])
+        style.map('Cancel.TButton',
+                  background=[('disabled', '#cccccc')],
+                  foreground=[('disabled', btn_fg)])
+
+        def update_widget_bg(widget):
+            try:
+                # 复选框/单选按钮：保持卡片背景，设置文本色
+                if isinstance(widget, (tk.Checkbutton, tk.Radiobutton)):
+                    widget.configure(bg=self.card_bg, fg=self.text_color, selectcolor=self.card_bg)
+                    return
+                if isinstance(widget, tk.Label):
+                    widget.configure(bg=self.bg_color, fg=self.text_color)
+                elif isinstance(widget, tk.Frame):
+                    widget.configure(bg=self.bg_color)
+                elif isinstance(widget, tk.Text):
+                    widget.configure(bg=self.log_bg, fg=self.log_fg)
+                for child in widget.winfo_children():
+                    update_widget_bg(child)
+            except Exception:
+                pass
+
+        update_widget_bg(self.root)
+        
+    def _save_theme(self):
+    #保存主题到文件
+        data = {"theme": self.current_theme.get()}
+        if self.current_theme.get() == "自定义":
+            data["custom_bg"] = THEMES["自定义"]["bg"]
+        with open("theme.json", "w") as f:
+            json.dump(data, f)
+
+    def _load_images(self):
+        def resource_path(relative_path):
+            if hasattr(sys, '_MEIPASS'):
+                return os.path.join(sys._MEIPASS, relative_path)
+            return os.path.join(os.path.abspath("."), relative_path)
+
+        # ---------- 窗口图标（左上角、任务栏）用小 PNG，加载快 ----------
+        try:
+            icon_path = resource_path("train_48.png")   # 48x48 足够清晰，体积小
+            icon_img = Image.open(icon_path)
+            self.icon_photo = ImageTk.PhotoImage(icon_img)
+            self.root.iconphoto(True, self.icon_photo)  # 使用 iconphoto，不解析多尺寸
+        except Exception as e:
+            print(f"Window icon error: {e}")
+
+        # ---------- 标题栏图标（1024 缩小到 32） ----------
+        try:
+            train_path = resource_path("train_1024.png")
+            pil_img = Image.open(train_path)
+            pil_img = pil_img.resize((32, 32), Image.Resampling.LANCZOS)
+            self.train_photo = ImageTk.PhotoImage(pil_img)
+        except Exception as e:
+            print(f"Title icon error: {e}")
+            self.train_photo = None
+
     # ---------------- 菜单 ----------------
     def _build_menu(self):
         menubar = Menu(self.root)
@@ -463,6 +696,13 @@ class TextureProcessorApp:
         adv_menu = Menu(menubar, tearoff=0)
         adv_menu.add_command(label=self.tr("rules_menu"), command=self._edit_rules)
         menubar.add_cascade(label=self.tr("adv_menu"), menu=adv_menu)
+
+        theme_menu = Menu(menubar, tearoff=0)
+        theme_menu.add_radiobutton(label="浅色", variable=self.current_theme, value="浅色", command=self._change_theme)
+        theme_menu.add_radiobutton(label="深色", variable=self.current_theme, value="深色", command=self._change_theme)
+        theme_menu.add_separator()
+        theme_menu.add_command(label="自定义背景颜色...", command=self._custom_background)
+        menubar.add_cascade(label=self.tr("theme_menu"), menu=theme_menu)
 
         help_menu = Menu(menubar, tearoff=0)
         help_menu.add_command(label=self.tr("about_menu"), command=self._show_about)
@@ -520,10 +760,10 @@ class TextureProcessorApp:
 
     # ---------------- UI 构建 ----------------
     def _build_ui(self):
-        main = ttk.Frame(self.root, padding="15")
+        main = ttk.Frame(self.root, padding="20")
         main.pack(fill=tk.BOTH, expand=True)
 
-        # 基础设置
+        # ---- 基础设置 ----
         self.frame_dir = ttk.LabelFrame(main, text=self.tr("source_group"), padding=10)
         self.frame_dir.pack(fill=tk.X, pady=(0,10))
 
@@ -537,42 +777,46 @@ class TextureProcessorApp:
         self.btn_browse.pack(side=tk.LEFT)
 
         opts_frame = ttk.Frame(self.frame_dir)
-        opts_frame.pack(fill=tk.X, pady=(5,0))
+        opts_frame.pack(fill=tk.X, pady=(8,0))
         self.chk_overwrite = tk.Checkbutton(opts_frame, text=self.tr("overwrite"), variable=self.overwrite,
-                                            font=self.default_font, bg='#f5f5f5', activebackground='#f5f5f5')
+                                            font=self.default_font, bg=self.card_bg, activebackground=self.card_bg, fg=self.text_color, selectcolor=self.card_bg)
         self.chk_overwrite.pack(side=tk.LEFT, padx=5)
         self.chk_alpha = tk.Checkbutton(opts_frame, text=self.tr("premul_alpha"), variable=self.premultiply_alpha,
-                                        font=self.default_font, bg='#f5f5f5', activebackground='#f5f5f5')
+                                        font=self.default_font, bg=self.card_bg, activebackground=self.card_bg, fg=self.text_color, selectcolor=self.card_bg)
         self.chk_alpha.pack(side=tk.LEFT, padx=5)
         self.chk_mip = tk.Checkbutton(opts_frame, text=self.tr("gen_mipmap"), variable=self.generate_mipmaps,
-                                      font=self.default_font, bg='#f5f5f5', activebackground='#f5f5f5')
+                                      font=self.default_font, bg=self.card_bg, activebackground=self.card_bg, fg=self.text_color, selectcolor=self.card_bg)
         self.chk_mip.pack(side=tk.LEFT, padx=5)
 
-        # 分辨率
-        self.frame_res = ttk.LabelFrame(main, text=self.tr("res_group"), padding=10)
-        self.frame_res.pack(fill=tk.X, pady=(0,10))
-        res_opts = list(RES_MAP.keys())
-        grid = ttk.Frame(self.frame_res)
-        grid.pack(fill=tk.X)
-        self.lbl_bc = ttk.Label(grid, text=self.tr("res_basecolor"))
-        self.lbl_bc.grid(row=0, column=0, padx=5, pady=3, sticky=tk.W)
-        ttk.OptionMenu(grid, self.bc_res, self.bc_res.get(), *res_opts).grid(row=0, column=1, padx=5, pady=3, sticky=tk.W)
-        self.lbl_n = ttk.Label(grid, text=self.tr("res_normal"))
-        self.lbl_n.grid(row=1, column=0, padx=5, pady=3, sticky=tk.W)
-        ttk.OptionMenu(grid, self.n_res, self.n_res.get(), *res_opts).grid(row=1, column=1, padx=5, pady=3, sticky=tk.W)
-        self.lbl_pk = ttk.Label(grid, text=self.tr("res_packed"))
-        self.lbl_pk.grid(row=2, column=0, padx=5, pady=3, sticky=tk.W)
-        ttk.OptionMenu(grid, self.pack_res, self.pack_res.get(), *res_opts).grid(row=2, column=1, padx=5, pady=3, sticky=tk.W)
+        # ---- 分辨率 + 通道组合并排 ----
+        content_row = ttk.Frame(main)
+        content_row.pack(fill=tk.X, pady=(0,10))
 
-        # 通道组合
-        self.frame_pack = ttk.LabelFrame(main, text=self.tr("packing_group"), padding=10)
-        self.frame_pack.pack(fill=tk.X, pady=(0,10))
+        # 分辨率卡片（左）
+        self.frame_res = ttk.LabelFrame(content_row, text=self.tr("res_group"), padding=10)
+        self.frame_res.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(0,5))
+        res_grid = ttk.Frame(self.frame_res)
+        res_grid.pack(fill=tk.BOTH, expand=True)
+        self.lbl_bc = ttk.Label(res_grid, text=self.tr("res_basecolor"))
+        self.lbl_bc.grid(row=0, column=0, padx=5, pady=4, sticky=tk.W)
+        ttk.OptionMenu(res_grid, self.bc_res, self.bc_res.get(), *list(RES_MAP.keys())).grid(row=0, column=1, padx=5, pady=4, sticky=tk.EW)
+        self.lbl_n = ttk.Label(res_grid, text=self.tr("res_normal"))
+        self.lbl_n.grid(row=1, column=0, padx=5, pady=4, sticky=tk.W)
+        ttk.OptionMenu(res_grid, self.n_res, self.n_res.get(), *list(RES_MAP.keys())).grid(row=1, column=1, padx=5, pady=4, sticky=tk.EW)
+        self.lbl_pk = ttk.Label(res_grid, text=self.tr("res_packed"))
+        self.lbl_pk.grid(row=2, column=0, padx=5, pady=4, sticky=tk.W)
+        ttk.OptionMenu(res_grid, self.pack_res, self.pack_res.get(), *list(RES_MAP.keys())).grid(row=2, column=1, padx=5, pady=4, sticky=tk.EW)
+        res_grid.columnconfigure(1, weight=1)
+
+        # 通道组合卡片（右）
+        self.frame_pack = ttk.LabelFrame(content_row, text=self.tr("packing_group"), padding=10)
+        self.frame_pack.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(5,0))
 
         preset_row = ttk.Frame(self.frame_pack)
         preset_row.pack(fill=tk.X, pady=(0,5))
         self.lbl_preset = ttk.Label(preset_row, text=self.tr("preset_label"))
         self.lbl_preset.pack(side=tk.LEFT)
-        self.preset_combo = ttk.Combobox(preset_row, textvariable=self.preset_var, state='readonly', width=18)
+        self.preset_combo = ttk.Combobox(preset_row, textvariable=self.preset_var, state='readonly', width=15)
         self.preset_combo.pack(side=tk.LEFT, padx=5)
         self.btn_save_preset = ttk.Button(preset_row, text=self.tr("save_preset"), command=self._save_preset)
         self.btn_save_preset.pack(side=tk.LEFT, padx=2)
@@ -590,7 +834,7 @@ class TextureProcessorApp:
             lbl = ttk.Label(ch_frame, text=label)
             lbl.grid(row=i, column=0, padx=5, pady=2, sticky=tk.W)
             self.ch_labels.append(lbl)
-            combo = ttk.Combobox(ch_frame, textvariable=var, values=TEXTURE_TYPES, state='readonly', width=18)
+            combo = ttk.Combobox(ch_frame, textvariable=var, values=TEXTURE_TYPES, state='readonly', width=15)
             combo.grid(row=i, column=1, padx=5, pady=2, sticky=tk.W)
             self.ch_combos.append(combo)
 
@@ -603,26 +847,30 @@ class TextureProcessorApp:
 
         self.preset_combo.bind('<<ComboboxSelected>>', lambda e: self._on_preset_change())
 
-        # 进度与日志
+        # ---- 进度、控制按钮与日志 ----
         bottom = ttk.Frame(main)
         bottom.pack(fill=tk.BOTH, expand=True)
 
         self.progress = ttk.Progressbar(bottom, orient=tk.HORIZONTAL, mode='determinate')
-        self.progress.pack(fill=tk.X, pady=(0,5))
+        self.progress.pack(fill=tk.X, pady=(5,5))
 
         ctrl_frame = ttk.Frame(bottom)
         ctrl_frame.pack(fill=tk.X, pady=(0,5))
-        self.btn_pause = ttk.Button(ctrl_frame, text=self.tr("pause"), command=self._toggle_pause, state='disabled')
+        self.btn_pause = ttk.Button(ctrl_frame, text=self.tr("pause"), command=self._toggle_pause,
+                                    state='disabled', style='Pause.TButton')
         self.btn_pause.pack(side=tk.LEFT, padx=5)
-        self.btn_cancel = ttk.Button(ctrl_frame, text=self.tr("cancel"), command=self._cancel_process, state='disabled')
+        self.btn_cancel = ttk.Button(ctrl_frame, text=self.tr("cancel"), command=self._cancel_process,
+                                     state='disabled', style='Cancel.TButton')
         self.btn_cancel.pack(side=tk.LEFT, padx=5)
 
         self.log_area = scrolledtext.ScrolledText(
-            bottom, height=8, state='disabled', wrap=tk.WORD,
-            font=("Consolas", 9), bg='white'
-        )
+             bottom, height=8, state='disabled', wrap=tk.WORD,
+             font=("Consolas", 9), bg=self.log_bg, fg=self.log_fg,
+             relief='solid', borderwidth=1, highlightthickness=1, highlightbackground=self.entry_border)
+
         self.log_area.pack(fill=tk.BOTH, expand=True)
-        self.btn_start = ttk.Button(main, text=self.tr("start_btn"), command=self._start)
+
+        self.btn_start = ttk.Button(main, text=self.tr("start_btn"), command=self._start, style='Accent.TButton')
         self.btn_start.pack(pady=(10,0))
 
     def _refresh_texts(self):
