@@ -5,11 +5,11 @@
 
 # Texture_Processor
 
-A software tool for batch processing PBR textures – no more having to open SP one by one to export them!
+A software tool for batch processing PBR textures – no more exporting them one by one in Substance Painter!
 
 ## Installation:
 
-Download Texture_Processor.exe from release.
+Download Texture_Processor.exe from the latest release.
 
 ## How to use:
 
