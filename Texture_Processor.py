@@ -381,16 +381,32 @@ class TextureProcessorApp:
 
     # 重启程序
     def _restart_program(self):
-        if getattr(sys, 'frozen', False):
-            # 如果是打包后的 EXE
-            exe = sys.executable
-            subprocess.Popen([exe])
-        else:
-            # Python 脚本运行
-            python = sys.executable
-            script = sys.argv[0]
-            subprocess.Popen([python, script])
-        self.root.destroy()
+        try:
+            if getattr(sys, 'frozen', False):
+                # 打包后的 EXE
+                exe_path = sys.executable
+            else:
+                exe_path = sys.executable
+                # 如果是 Python 脚本运行，需要脚本路径作为参数
+                script = sys.argv[0]
+                # 使用 subprocess.Popen 并传递脚本路径
+                subprocess.Popen([exe_path, script], shell=True)
+                self.root.destroy()
+                sys.exit(0)
+
+            # 对于打包后的 EXE，直接启动自身（不带任何参数）
+            if sys.platform == "win32":
+                # 使用 os.startfile 更稳定
+                os.startfile(exe_path)
+            else:
+                subprocess.Popen([exe_path], shell=True)
+
+            # 延迟一点点确保新进程已启动，然后强制退出
+            self.root.after(500, lambda: os._exit(0))
+        except Exception as e:
+            messagebox.showerror("重启失败", f"无法自动重启程序，请手动重新打开。\n错误：{e}")
+            self.root.destroy()
+            sys.exit(1)
 
     # ---------------- 菜单 ----------------
 
