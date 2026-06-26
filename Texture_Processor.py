@@ -6,6 +6,7 @@ import json
 import re
 from pathlib import Path
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk, filedialog, messagebox, scrolledtext, simpledialog, Menu
 from PIL import Image
 import numpy as np
@@ -54,6 +55,7 @@ DEFAULT_PRESETS = {
 STRINGS = {
     "zh": {
         "title": "PBR 贴图批量处理 & 通道打包工具",
+        "source_group": "源文件夹 & 输出选项",
         "source_label": "资产根目录:",
         "browse": "浏览",
         "overwrite": "覆盖已存在的 DDS 文件",
@@ -95,9 +97,12 @@ STRINGS = {
         "rule_save": "保存规则",
         "rule_cancel": "取消",
         "rule_tip": "每行一个关键词，小写英文",
+        "lang_restart_title": "语言更改",
+        "lang_restart_msg": "语言已更改，需要重启程序才能完全生效。\n是否立即重启？"
     },
     "en": {
         "title": "PBR Texture Batch Processor & Channel Packer",
+        "source_group": "Source Folder & Output Options",
         "source_label": "Asset Root:",
         "browse": "Browse",
         "overwrite": "Overwrite existing DDS",
@@ -139,9 +144,12 @@ STRINGS = {
         "rule_save": "Save Rules",
         "rule_cancel": "Cancel",
         "rule_tip": "One keyword per line, lowercase English",
+        "lang_restart_title": "Language Changed",
+        "lang_restart_msg": "Language has been changed. Restart the program to apply.\nRestart now?"
     },
     "ja": {
         "title": "PBRテクスチャバッチ処理＆チャンネルパッカー",
+        "source_group": "ソースフォルダ & 出力オプション",
         "source_label": "アセットルート:",
         "browse": "参照",
         "overwrite": "既存のDDSを上書き",
@@ -162,7 +170,7 @@ STRINGS = {
         "suffix_label": "サフィックス:",
         "start_btn": "▶  処理開始",
         "lang_menu": "言語",
-        "adv_menu": "高度",
+        "adv_menu": "詳細設定",
         "rules_menu": "マッチングルール編集",
         "help_menu": "ヘルプ",
         "about_menu": "について",
@@ -183,9 +191,12 @@ STRINGS = {
         "rule_save": "ルール保存",
         "rule_cancel": "キャンセル",
         "rule_tip": "1行に1キーワード、小文字の英語",
+        "lang_restart_title": "言語変更",
+        "lang_restart_msg": "言語が変更されました。再起動しますか？\n今すぐ再起動しますか？"
     },
     "ko": {
         "title": "PBR 텍스처 배치 처리 및 채널 패커",
+        "source_group": "소스 폴더 & 출력 옵션",
         "source_label": "에셋 루트:",
         "browse": "찾아보기",
         "overwrite": "기존 DDS 덮어쓰기",
@@ -227,6 +238,8 @@ STRINGS = {
         "rule_save": "규칙 저장",
         "rule_cancel": "취소",
         "rule_tip": "한 줄에 하나의 키워드, 소문자 영어",
+        "lang_restart_title": "언어 변경",
+        "lang_restart_msg": "언어가 변경되었습니다. 프로그램을 다시 시작해야 적용됩니다.\n지금 다시 시작하시겠습니까?"
     }
 }
 
@@ -237,7 +250,9 @@ class TextureProcessorApp:
         # 先创建语言变量，再加载文件
         self.lang = tk.StringVar(value="zh")
         self._load_language()
+        self.current_lang = self.lang.get()         
         self.lang.trace_add('write', self._on_lang_change_full)
+        self.korean_available = self._check_korean_font()
 
         self._load_match_rules()
 
@@ -292,11 +307,6 @@ class TextureProcessorApp:
     def tr(self, key):
         return STRINGS.get(self.lang.get(), STRINGS["en"]).get(key, key)
 
-    def _on_lang_change_full(self, *args):
-        self._save_language()
-        self._rebuild_menu()
-        self._refresh_texts()
-
     def _load_language(self):
         if Path(LANG_FILE).exists():
             try:
@@ -305,6 +315,27 @@ class TextureProcessorApp:
                     self.lang.set(data.get("lang", "zh"))
             except Exception:
                 pass
+
+    def _check_korean_font(self):
+        try:
+            test_font = tkfont.Font(family="Malgun Gothic", size=10)
+            test_font.measure("한글")   # 如果能测量说明字体可用
+            return True
+        except Exception:
+            return False
+    
+    def _on_lang_change_full(self, *args):
+        new_lang = self.lang.get()
+        if new_lang == self.current_lang:
+            return
+        self._save_language()
+        if messagebox.askyesno(
+            self.tr("lang_restart_title"),
+            self.tr("lang_restart_msg")
+        ):
+            self._restart_program()
+        else:
+            self.root.destroy()
 
     def _save_language(self):
         with open(LANG_FILE, 'w', encoding='utf-8') as f:
@@ -344,17 +375,31 @@ class TextureProcessorApp:
         with open(PRESET_FILE, 'w', encoding='utf-8') as f:
             json.dump(self.presets, f, indent=2, ensure_ascii=False)
 
+    # 重启程序
+    def _restart_program(self):
+        if getattr(sys, 'frozen', False):
+            # 如果是打包后的 EXE
+            exe = sys.executable
+            subprocess.Popen([exe])
+        else:
+            # Python 脚本运行
+            python = sys.executable
+            script = sys.argv[0]
+            subprocess.Popen([python, script])
+        self.root.destroy()
+
     # ---------------- 菜单 ----------------
+
     def _build_menu(self):
         menubar = Menu(self.root)
         self.root.config(menu=menubar)
 
-        # 语言菜单
         lang_menu = Menu(menubar, tearoff=0)
-        lang_menu.add_radiobutton(label="中文", variable=self.lang, value="zh", command=self._save_language)
-        lang_menu.add_radiobutton(label="English", variable=self.lang, value="en", command=self._save_language)
-        lang_menu.add_radiobutton(label="日本語", variable=self.lang, value="ja", command=self._save_language)
-        lang_menu.add_radiobutton(label="한국어", variable=self.lang, value="ko", command=self._save_language)
+        lang_menu.add_radiobutton(label="中文", variable=self.lang, value="zh")
+        lang_menu.add_radiobutton(label="English", variable=self.lang, value="en")
+        lang_menu.add_radiobutton(label="日本語", variable=self.lang, value="ja")
+        if self.korean_available:
+            lang_menu.add_radiobutton(label="한국어", variable=self.lang, value="ko")
         menubar.add_cascade(label=self.tr("lang_menu"), menu=lang_menu)
 
         # 高级菜单
@@ -425,7 +470,7 @@ class TextureProcessorApp:
         main.pack(fill=tk.BOTH, expand=True)
 
         # 基础设置
-        self.frame_dir = ttk.LabelFrame(main, text="源文件夹 & 输出选项", padding=10)
+        self.frame_dir = ttk.LabelFrame(main, text=self.tr("source_group"), padding=10)
         self.frame_dir.pack(fill=tk.X, pady=(0,10))
 
         row1 = ttk.Frame(self.frame_dir)
@@ -520,7 +565,7 @@ class TextureProcessorApp:
     def _refresh_texts(self):
         """刷新界面文字（菜单和标签）"""
         self.root.title(self.tr("title"))
-        self.frame_dir.config(text="源文件夹 & 输出选项")
+        self.frame_dir.config(text=self.tr("source_group"))
         self.lbl_dir.config(text=self.tr("source_label"))
         self.btn_browse.config(text=self.tr("browse"))
         self.chk_overwrite.config(text=self.tr("overwrite"))
