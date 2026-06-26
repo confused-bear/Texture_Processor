@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import time
 import threading
 import json
 import re
@@ -383,30 +384,34 @@ class TextureProcessorApp:
     def _restart_program(self):
         try:
             if getattr(sys, 'frozen', False):
-                # 打包后的 EXE
-                exe_path = sys.executable
+                exe = sys.executable
+                # Windows 下使用 DETACHED_PROCESS 标志让新进程脱离控制台/父进程
+                if sys.platform == "win32":
+                    subprocess.Popen(
+                        [exe],
+                        creationflags=subprocess.DETACHED_PROCESS,
+                        close_fds=True
+                    )
+                else:
+                    subprocess.Popen([exe], close_fds=True)
             else:
-                exe_path = sys.executable
-                # 如果是 Python 脚本运行，需要脚本路径作为参数
+                python = sys.executable
                 script = sys.argv[0]
-                # 使用 subprocess.Popen 并传递脚本路径
-                subprocess.Popen([exe_path, script], shell=True)
-                self.root.destroy()
-                sys.exit(0)
+                if sys.platform == "win32":
+                    subprocess.Popen(
+                        [python, script],
+                        creationflags=subprocess.DETACHED_PROCESS,
+                        close_fds=True
+                    )
+                else:
+                    subprocess.Popen([python, script], close_fds=True)
 
-            # 对于打包后的 EXE，直接启动自身（不带任何参数）
-            if sys.platform == "win32":
-                # 使用 os.startfile 更稳定
-                os.startfile(exe_path)
-            else:
-                subprocess.Popen([exe_path], shell=True)
-
-            # 延迟一点点确保新进程已启动，然后强制退出
-            self.root.after(500, lambda: os._exit(0))
+            # 立即强制退出，不给 PyInstaller 清理临时目录的机会（避免冲突）
+            os._exit(0)
         except Exception as e:
-            messagebox.showerror("重启失败", f"无法自动重启程序，请手动重新打开。\n错误：{e}")
+            messagebox.showerror("重启失败", f"无法自动重启，请手动重新打开。\n错误：{e}")
             self.root.destroy()
-            sys.exit(1)
+            os._exit(1)
 
     # ---------------- 菜单 ----------------
 
