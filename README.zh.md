@@ -9,13 +9,13 @@
 
 ## 安装方法：
 
-下载release里texconv.exe，点击Texture_Processor.exe运行程序
+到最新的release里下载Texture_Processor.exe，运行即可
 
 ## 使用方法：
 
 1.指定你下载的素材所在文件夹,可选Mipmap生成和半透材质预乘alpha 
 
-2.设置输出三张dds贴图分辨率（DDS格式都是ARGB 8:8:8:8），默认漫反射4K，法线2K，通道2K 
+2.设置输出三张dds贴图分辨率（DDS格式都是ARGB 8:8:8:8），默认漫反射/颜色4K，法线2K，通道2K 
 
 3.设置通道贴图组合，可自定义配置并保存自定义预设，设置输出的通道贴图后缀名
 
