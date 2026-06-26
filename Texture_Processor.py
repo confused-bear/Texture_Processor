@@ -6,13 +6,15 @@ import json
 import re
 from pathlib import Path
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox, scrolledtext, simpledialog
+from tkinter import ttk, filedialog, messagebox, scrolledtext, simpledialog, Menu
 from PIL import Image
 import numpy as np
 
 # -------------------- 配置 --------------------
 TEXCONV = "texconv.exe"
 PRESET_FILE = "packing_presets.json"
+LANG_FILE = "lang.json"
+RULES_FILE = "match_rules.json"
 
 RES_MAP = {
     "8K": 8192, "4K": 4096, "2K": 2048,
@@ -25,17 +27,222 @@ TEXTURE_TYPES = [
     "Roughness", "Scattering", "Specular"
 ]
 
+DEFAULT_RULES = {
+    "AO": ["ao"],
+    "BaseColor": ["basecolor", "base_color", "diffuse"],
+    "Normal": ["normal", "norm"],
+    "Roughness": ["roughness", "rough"],
+    "Displacement": ["displacement", "disp"],
+    "Cavity": ["cavity"],
+    "Emissive": ["emissive"],
+    "Fuzz": ["fuzz"],
+    "Gloss": ["gloss"],
+    "Height": ["height"],
+    "Metal": ["metal", "metallic"],
+    "Opacity": ["opacity"],
+    "Reflection": ["reflection"],
+    "Scattering": ["scattering"],
+    "Specular": ["specular"],
+}
+
 DEFAULT_PRESETS = {
     "ORDp": {"R": "AO", "G": "Roughness", "B": "Displacement", "A": "None", "suffix": "ORDp"},
     "ORM":  {"R": "AO", "G": "Roughness", "B": "Metal", "A": "None", "suffix": "ORM"}
+}
+
+# 多语言字典（部分字段，完整见下方）
+STRINGS = {
+    "zh": {
+        "title": "PBR 贴图批量处理 & 通道打包工具",
+        "source_label": "资产根目录:",
+        "browse": "浏览",
+        "overwrite": "覆盖已存在的 DDS 文件",
+        "premul_alpha": "半透明材质 (预乘Alpha)",
+        "gen_mipmap": "生成 Mipmap",
+        "res_group": "输出分辨率",
+        "res_basecolor": "BaseColor:",
+        "res_normal": "Normal:",
+        "res_packed": "通道贴图:",
+        "packing_group": "通道组合配置",
+        "preset_label": "当前预设:",
+        "save_preset": "保存当前为预设",
+        "del_preset": "删除选中预设",
+        "r_ch": "R 通道:",
+        "g_ch": "G 通道:",
+        "b_ch": "B 通道:",
+        "a_ch": "A 通道:",
+        "suffix_label": "输出后缀:",
+        "start_btn": "▶  开始批量处理",
+        "lang_menu": "语言",
+        "adv_menu": "高级",
+        "rules_menu": "编辑匹配规则",
+        "help_menu": "帮助",
+        "about_menu": "关于",
+        "about_text": "作者: William_Wang (Confused_Bear)\n使用 DeepSeek Vibe Coding 制作",
+        "dir_error": "错误",
+        "dir_error_msg": "请先选择有效的资产根目录",
+        "texconv_missing": "texconv.exe 未找到，请将其放在程序同目录下。",
+        "preset_save_title": "保存预设",
+        "preset_save_prompt": "请输入预设名称（不可与内置同名）:",
+        "preset_overwrite": "不能覆盖内置预设，请使用其他名称。",
+        "preset_delete_confirm": "确定要删除预设 '{name}' 吗？",
+        "preset_deleted": "预设 '{name}' 已删除。",
+        "preset_saved": "预设 '{name}' 已保存。",
+        "no_folder": "未找到子文件夹，请检查目录结构。",
+        "found_folders": "找到 {} 个资产文件夹，开始处理...\n",
+        "done": "全部完成！",
+        "rule_editor_title": "编辑匹配规则",
+        "rule_save": "保存规则",
+        "rule_cancel": "取消",
+        "rule_tip": "每行一个关键词，小写英文",
+    },
+    "en": {
+        "title": "PBR Texture Batch Processor & Channel Packer",
+        "source_label": "Asset Root:",
+        "browse": "Browse",
+        "overwrite": "Overwrite existing DDS",
+        "premul_alpha": "Translucent (Premultiplied Alpha)",
+        "gen_mipmap": "Generate Mipmaps",
+        "res_group": "Output Resolution",
+        "res_basecolor": "BaseColor:",
+        "res_normal": "Normal:",
+        "res_packed": "Packed Map:",
+        "packing_group": "Channel Packing Config",
+        "preset_label": "Preset:",
+        "save_preset": "Save as Preset",
+        "del_preset": "Delete Preset",
+        "r_ch": "R Channel:",
+        "g_ch": "G Channel:",
+        "b_ch": "B Channel:",
+        "a_ch": "A Channel:",
+        "suffix_label": "Suffix:",
+        "start_btn": "▶  Start Processing",
+        "lang_menu": "Language",
+        "adv_menu": "Advanced",
+        "rules_menu": "Edit Matching Rules",
+        "help_menu": "Help",
+        "about_menu": "About",
+        "about_text": "Author: William_Wang (Confused_Bear)\nMade with DeepSeek Vibe Coding",
+        "dir_error": "Error",
+        "dir_error_msg": "Please select a valid asset root directory",
+        "texconv_missing": "texconv.exe not found. Place it in the same folder as the program.",
+        "preset_save_title": "Save Preset",
+        "preset_save_prompt": "Enter preset name (cannot be same as built-in):",
+        "preset_overwrite": "Cannot overwrite built-in presets.",
+        "preset_delete_confirm": "Are you sure you want to delete '{name}'?",
+        "preset_deleted": "Preset '{name}' deleted.",
+        "preset_saved": "Preset '{name}' saved.",
+        "no_folder": "No subfolders found. Check directory structure.",
+        "found_folders": "Found {} asset folders, starting...\n",
+        "done": "All done!",
+        "rule_editor_title": "Edit Matching Rules",
+        "rule_save": "Save Rules",
+        "rule_cancel": "Cancel",
+        "rule_tip": "One keyword per line, lowercase English",
+    },
+    "ja": {
+        "title": "PBRテクスチャバッチ処理＆チャンネルパッカー",
+        "source_label": "アセットルート:",
+        "browse": "参照",
+        "overwrite": "既存のDDSを上書き",
+        "premul_alpha": "半透明 (乗算済みアルファ)",
+        "gen_mipmap": "ミップマップ生成",
+        "res_group": "出力解像度",
+        "res_basecolor": "ベースカラー:",
+        "res_normal": "ノーマル:",
+        "res_packed": "パックマップ:",
+        "packing_group": "チャンネルパック設定",
+        "preset_label": "プリセット:",
+        "save_preset": "プリセット保存",
+        "del_preset": "プリセット削除",
+        "r_ch": "Rチャンネル:",
+        "g_ch": "Gチャンネル:",
+        "b_ch": "Bチャンネル:",
+        "a_ch": "Aチャンネル:",
+        "suffix_label": "サフィックス:",
+        "start_btn": "▶  処理開始",
+        "lang_menu": "言語",
+        "adv_menu": "高度",
+        "rules_menu": "マッチングルール編集",
+        "help_menu": "ヘルプ",
+        "about_menu": "について",
+        "about_text": "作者: William_Wang (Confused_Bear)\nDeepSeek Vibe Coding で作成",
+        "dir_error": "エラー",
+        "dir_error_msg": "有効なアセットルートディレクトリを選択してください",
+        "texconv_missing": "texconv.exe が見つかりません。プログラムと同じフォルダに置いてください。",
+        "preset_save_title": "プリセット保存",
+        "preset_save_prompt": "プリセット名を入力（ビルトインと重複不可）:",
+        "preset_overwrite": "ビルトインプリセットは上書きできません。",
+        "preset_delete_confirm": "'{name}' を削除しますか？",
+        "preset_deleted": "プリセット '{name}' を削除しました。",
+        "preset_saved": "プリセット '{name}' を保存しました。",
+        "no_folder": "サブフォルダが見つかりません。ディレクトリ構造を確認してください。",
+        "found_folders": "{} 個のアセットフォルダを発見、処理開始...\n",
+        "done": "完了！",
+        "rule_editor_title": "マッチングルール編集",
+        "rule_save": "ルール保存",
+        "rule_cancel": "キャンセル",
+        "rule_tip": "1行に1キーワード、小文字の英語",
+    },
+    "ko": {
+        "title": "PBR 텍스처 배치 처리 및 채널 패커",
+        "source_label": "에셋 루트:",
+        "browse": "찾아보기",
+        "overwrite": "기존 DDS 덮어쓰기",
+        "premul_alpha": "반투명 (프리멀티플라이드 알파)",
+        "gen_mipmap": "밉맵 생성",
+        "res_group": "출력 해상도",
+        "res_basecolor": "베이스컬러:",
+        "res_normal": "노멀:",
+        "res_packed": "패킹 맵:",
+        "packing_group": "채널 패킹 설정",
+        "preset_label": "프리셋:",
+        "save_preset": "프리셋 저장",
+        "del_preset": "프리셋 삭제",
+        "r_ch": "R 채널:",
+        "g_ch": "G 채널:",
+        "b_ch": "B 채널:",
+        "a_ch": "A 채널:",
+        "suffix_label": "접미사:",
+        "start_btn": "▶  처리 시작",
+        "lang_menu": "언어",
+        "adv_menu": "고급",
+        "rules_menu": "매칭 규칙 편집",
+        "help_menu": "도움말",
+        "about_menu": "정보",
+        "about_text": "제작자: William_Wang (Confused_Bear)\nDeepSeek Vibe Coding으로 제작",
+        "dir_error": "오류",
+        "dir_error_msg": "유효한 에셋 루트 디렉토리를 선택하세요",
+        "texconv_missing": "texconv.exe를 찾을 수 없습니다. 프로그램과 같은 폴더에 넣어주세요.",
+        "preset_save_title": "프리셋 저장",
+        "preset_save_prompt": "프리셋 이름 입력 (내장과 중복 불가):",
+        "preset_overwrite": "내장 프리셋은 덮어쓸 수 없습니다.",
+        "preset_delete_confirm": "'{name}'을(를) 삭제하시겠습니까?",
+        "preset_deleted": "프리셋 '{name}' 삭제됨.",
+        "preset_saved": "프리셋 '{name}' 저장됨.",
+        "no_folder": "하위 폴더가 없습니다. 디렉토리 구조를 확인하세요.",
+        "found_folders": "{}개의 에셋 폴더 발견, 처리 시작...\n",
+        "done": "완료!",
+        "rule_editor_title": "매칭 규칙 편집",
+        "rule_save": "규칙 저장",
+        "rule_cancel": "취소",
+        "rule_tip": "한 줄에 하나의 키워드, 소문자 영어",
+    }
 }
 
 
 class TextureProcessorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("PBR 贴图批量处理 & 通道打包工具")
-        self.root.geometry("720x780")
+        # 先创建语言变量，再加载文件
+        self.lang = tk.StringVar(value="zh")
+        self._load_language()
+        self.lang.trace_add('write', self._on_lang_change_full)
+
+        self._load_match_rules()
+
+        self.root.title(self.tr("title"))
+        self.root.geometry("720x820")
         self.root.resizable(True, True)
         self.root.configure(bg='#f5f5f5')
 
@@ -52,20 +259,15 @@ class TextureProcessorApp:
         style.configure('TCombobox', font=self.default_font)
         style.configure('TLabelframe.Label', font=self.bold_font)
 
-        # 路径 & 覆盖
+        # 变量
         self.base_dir = tk.StringVar()
         self.overwrite = tk.BooleanVar(value=False)
-
-        # 分辨率
         self.bc_res = tk.StringVar(value="4K")
         self.n_res = tk.StringVar(value="2K")
         self.pack_res = tk.StringVar(value="2K")
-
-        # 新增：透明 & Mipmap
         self.premultiply_alpha = tk.BooleanVar(value=False)
         self.generate_mipmaps = tk.BooleanVar(value=False)
 
-        # 预设 & 通道
         self.preset_var = tk.StringVar(value="ORDp")
         self.custom_r = tk.StringVar(value="AO")
         self.custom_g = tk.StringVar(value="Roughness")
@@ -77,12 +279,50 @@ class TextureProcessorApp:
         self.presets = self._load_presets()
 
         if not self._check_texconv():
-            messagebox.showerror("错误", "texconv.exe 未找到，请将其放在程序同目录下。")
+            messagebox.showerror(self.tr("dir_error"), self.tr("texconv_missing"))
             root.destroy()
             return
 
+        self._build_menu()
         self._build_ui()
         self._on_preset_change()
+        self._refresh_texts()
+
+    # ---------------- 辅助方法 ----------------
+    def tr(self, key):
+        return STRINGS.get(self.lang.get(), STRINGS["en"]).get(key, key)
+
+    def _on_lang_change_full(self, *args):
+        self._save_language()
+        self._rebuild_menu()
+        self._refresh_texts()
+
+    def _load_language(self):
+        if Path(LANG_FILE).exists():
+            try:
+                with open(LANG_FILE, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    self.lang.set(data.get("lang", "zh"))
+            except Exception:
+                pass
+
+    def _save_language(self):
+        with open(LANG_FILE, 'w', encoding='utf-8') as f:
+            json.dump({"lang": self.lang.get()}, f)
+
+    def _load_match_rules(self):
+        if Path(RULES_FILE).exists():
+            try:
+                with open(RULES_FILE, 'r', encoding='utf-8') as f:
+                    self.match_rules = json.load(f)
+            except Exception:
+                self.match_rules = DEFAULT_RULES.copy()
+        else:
+            self.match_rules = DEFAULT_RULES.copy()
+
+    def _save_match_rules(self):
+        with open(RULES_FILE, 'w', encoding='utf-8') as f:
+            json.dump(self.match_rules, f, indent=2, ensure_ascii=False)
 
     def _check_texconv(self):
         try:
@@ -104,76 +344,167 @@ class TextureProcessorApp:
         with open(PRESET_FILE, 'w', encoding='utf-8') as f:
             json.dump(self.presets, f, indent=2, ensure_ascii=False)
 
+    # ---------------- 菜单 ----------------
+    def _build_menu(self):
+        menubar = Menu(self.root)
+        self.root.config(menu=menubar)
+
+        # 语言菜单
+        lang_menu = Menu(menubar, tearoff=0)
+        lang_menu.add_radiobutton(label="中文", variable=self.lang, value="zh", command=self._save_language)
+        lang_menu.add_radiobutton(label="English", variable=self.lang, value="en", command=self._save_language)
+        lang_menu.add_radiobutton(label="日本語", variable=self.lang, value="ja", command=self._save_language)
+        lang_menu.add_radiobutton(label="한국어", variable=self.lang, value="ko", command=self._save_language)
+        menubar.add_cascade(label=self.tr("lang_menu"), menu=lang_menu)
+
+        # 高级菜单
+        adv_menu = Menu(menubar, tearoff=0)
+        adv_menu.add_command(label=self.tr("rules_menu"), command=self._edit_rules)
+        menubar.add_cascade(label=self.tr("adv_menu"), menu=adv_menu)
+
+        # 帮助菜单
+        help_menu = Menu(menubar, tearoff=0)
+        help_menu.add_command(label=self.tr("about_menu"), command=self._show_about)
+        menubar.add_cascade(label=self.tr("help_menu"), menu=help_menu)
+
+    def _rebuild_menu(self):
+        # 删除旧菜单并重建
+        self.root.config(menu=None)
+        self._build_menu()
+
+    def _edit_rules(self):
+        win = tk.Toplevel(self.root)
+        win.title(self.tr("rule_editor_title"))
+        win.geometry("400x500")
+        win.resizable(True, True)
+
+        frame = ttk.Frame(win, padding=10)
+        frame.pack(fill=tk.BOTH, expand=True)
+
+        ttk.Label(frame, text=self.tr("rule_tip")).pack(anchor=tk.W)
+        text = tk.Text(frame, wrap=tk.WORD, font=("Consolas", 10))
+        text.pack(fill=tk.BOTH, expand=True, pady=5)
+
+        # 加载当前规则
+        for tex_type in self.match_rules:
+            text.insert(tk.END, f"[{tex_type}]\n")
+            for kw in self.match_rules[tex_type]:
+                text.insert(tk.END, kw + "\n")
+            text.insert(tk.END, "\n")
+
+        def save():
+            content = text.get("1.0", tk.END)
+            new_rules = {}
+            current_type = None
+            for line in content.splitlines():
+                line = line.strip()
+                if line.startswith('[') and line.endswith(']'):
+                    current_type = line[1:-1]
+                    new_rules[current_type] = []
+                elif current_type and line:
+                    new_rules[current_type].append(line.lower())
+            for t in DEFAULT_RULES.keys():
+                if t not in new_rules:
+                    new_rules[t] = []
+            self.match_rules = new_rules
+            self._save_match_rules()
+            messagebox.showinfo(self.tr("rule_editor_title"), "Rules saved.")
+            win.destroy()
+
+        btn_frame = ttk.Frame(win)
+        btn_frame.pack(fill=tk.X, pady=5)
+        ttk.Button(btn_frame, text=self.tr("rule_save"), command=save).pack(side=tk.RIGHT, padx=5)
+        ttk.Button(btn_frame, text=self.tr("rule_cancel"), command=win.destroy).pack(side=tk.RIGHT)
+
+    def _show_about(self):
+        messagebox.showinfo(self.tr("about_menu"), self.tr("about_text"))
+
+    # ---------------- UI 构建 ----------------
     def _build_ui(self):
         main = ttk.Frame(self.root, padding="15")
         main.pack(fill=tk.BOTH, expand=True)
 
-        # ---------- 基础设置 ----------
-        frame_dir = ttk.LabelFrame(main, text="源文件夹 & 输出选项", padding=10)
-        frame_dir.pack(fill=tk.X, pady=(0,10))
+        # 基础设置
+        self.frame_dir = ttk.LabelFrame(main, text="源文件夹 & 输出选项", padding=10)
+        self.frame_dir.pack(fill=tk.X, pady=(0,10))
 
-        row1 = ttk.Frame(frame_dir)
+        row1 = ttk.Frame(self.frame_dir)
         row1.pack(fill=tk.X)
-        ttk.Label(row1, text="资产根目录:").pack(side=tk.LEFT)
-        ttk.Entry(row1, textvariable=self.base_dir, width=45).pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
-        ttk.Button(row1, text="浏览", width=8, command=self._browse).pack(side=tk.LEFT)
+        self.lbl_dir = ttk.Label(row1, text=self.tr("source_label"))
+        self.lbl_dir.pack(side=tk.LEFT)
+        self.entry_dir = ttk.Entry(row1, textvariable=self.base_dir, width=45)
+        self.entry_dir.pack(side=tk.LEFT, padx=5, expand=True, fill=tk.X)
+        self.btn_browse = ttk.Button(row1, text=self.tr("browse"), width=8, command=self._browse)
+        self.btn_browse.pack(side=tk.LEFT)
 
-        # 覆盖 + 透明 + Mipmap
-        opts_frame = ttk.Frame(frame_dir)
+        opts_frame = ttk.Frame(self.frame_dir)
         opts_frame.pack(fill=tk.X, pady=(5,0))
-        tk.Checkbutton(opts_frame, text="覆盖已存在的 DDS 文件", variable=self.overwrite,
-            font=self.default_font, bg='#f5f5f5', activebackground='#f5f5f5').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(opts_frame, text="半透明材质 (预乘Alpha)", variable=self.premultiply_alpha,
-            font=self.default_font, bg='#f5f5f5', activebackground='#f5f5f5').pack(side=tk.LEFT, padx=5)
-        tk.Checkbutton(opts_frame, text="生成 Mipmap", variable=self.generate_mipmaps,
-            font=self.default_font, bg='#f5f5f5', activebackground='#f5f5f5').pack(side=tk.LEFT, padx=5)
-        # ---------- 分辨率 ----------
-        frame_res = ttk.LabelFrame(main, text="输出分辨率", padding=10)
-        frame_res.pack(fill=tk.X, pady=(0,10))
+        self.chk_overwrite = tk.Checkbutton(opts_frame, text=self.tr("overwrite"), variable=self.overwrite,
+                                            font=self.default_font, bg='#f5f5f5', activebackground='#f5f5f5')
+        self.chk_overwrite.pack(side=tk.LEFT, padx=5)
+        self.chk_alpha = tk.Checkbutton(opts_frame, text=self.tr("premul_alpha"), variable=self.premultiply_alpha,
+                                        font=self.default_font, bg='#f5f5f5', activebackground='#f5f5f5')
+        self.chk_alpha.pack(side=tk.LEFT, padx=5)
+        self.chk_mip = tk.Checkbutton(opts_frame, text=self.tr("gen_mipmap"), variable=self.generate_mipmaps,
+                                      font=self.default_font, bg='#f5f5f5', activebackground='#f5f5f5')
+        self.chk_mip.pack(side=tk.LEFT, padx=5)
 
+        # 分辨率
+        self.frame_res = ttk.LabelFrame(main, text=self.tr("res_group"), padding=10)
+        self.frame_res.pack(fill=tk.X, pady=(0,10))
         res_opts = list(RES_MAP.keys())
-        grid = ttk.Frame(frame_res)
+        grid = ttk.Frame(self.frame_res)
         grid.pack(fill=tk.X)
-        ttk.Label(grid, text="BaseColor:").grid(row=0, column=0, padx=5, pady=3, sticky=tk.W)
+        self.lbl_bc = ttk.Label(grid, text=self.tr("res_basecolor"))
+        self.lbl_bc.grid(row=0, column=0, padx=5, pady=3, sticky=tk.W)
         ttk.OptionMenu(grid, self.bc_res, self.bc_res.get(), *res_opts).grid(row=0, column=1, padx=5, pady=3, sticky=tk.W)
-        ttk.Label(grid, text="Normal:").grid(row=1, column=0, padx=5, pady=3, sticky=tk.W)
+        self.lbl_n = ttk.Label(grid, text=self.tr("res_normal"))
+        self.lbl_n.grid(row=1, column=0, padx=5, pady=3, sticky=tk.W)
         ttk.OptionMenu(grid, self.n_res, self.n_res.get(), *res_opts).grid(row=1, column=1, padx=5, pady=3, sticky=tk.W)
-        ttk.Label(grid, text="通道贴图:").grid(row=2, column=0, padx=5, pady=3, sticky=tk.W)
+        self.lbl_pk = ttk.Label(grid, text=self.tr("res_packed"))
+        self.lbl_pk.grid(row=2, column=0, padx=5, pady=3, sticky=tk.W)
         ttk.OptionMenu(grid, self.pack_res, self.pack_res.get(), *res_opts).grid(row=2, column=1, padx=5, pady=3, sticky=tk.W)
 
-        # ---------- 通道组合配置 ----------
-        frame_pack = ttk.LabelFrame(main, text="通道组合配置", padding=10)
-        frame_pack.pack(fill=tk.X, pady=(0,10))
+        # 通道组合
+        self.frame_pack = ttk.LabelFrame(main, text=self.tr("packing_group"), padding=10)
+        self.frame_pack.pack(fill=tk.X, pady=(0,10))
 
-        preset_row = ttk.Frame(frame_pack)
+        preset_row = ttk.Frame(self.frame_pack)
         preset_row.pack(fill=tk.X, pady=(0,5))
-        ttk.Label(preset_row, text="当前预设:").pack(side=tk.LEFT)
+        self.lbl_preset = ttk.Label(preset_row, text=self.tr("preset_label"))
+        self.lbl_preset.pack(side=tk.LEFT)
         self.preset_combo = ttk.Combobox(preset_row, textvariable=self.preset_var, state='readonly', width=18)
         self.preset_combo.pack(side=tk.LEFT, padx=5)
-        ttk.Button(preset_row, text="保存当前为预设", command=self._save_preset).pack(side=tk.LEFT, padx=2)
-        ttk.Button(preset_row, text="删除选中预设", command=self._delete_preset).pack(side=tk.LEFT)
+        self.btn_save_preset = ttk.Button(preset_row, text=self.tr("save_preset"), command=self._save_preset)
+        self.btn_save_preset.pack(side=tk.LEFT, padx=2)
+        self.btn_del_preset = ttk.Button(preset_row, text=self.tr("del_preset"), command=self._delete_preset)
+        self.btn_del_preset.pack(side=tk.LEFT)
         self._update_preset_list()
 
-        ch_frame = ttk.Frame(frame_pack)
+        ch_frame = ttk.Frame(self.frame_pack)
         ch_frame.pack(fill=tk.X, pady=5)
-        labels = ["R 通道:", "G 通道:", "B 通道:", "A 通道:"]
-        vars_ = [self.custom_r, self.custom_g, self.custom_b, self.custom_a]
+        self.ch_labels = []
         self.ch_combos = []
-        for i, (label, var) in enumerate(zip(labels, vars_)):
-            ttk.Label(ch_frame, text=label).grid(row=i, column=0, padx=5, pady=2, sticky=tk.W)
+        lbls = [self.tr("r_ch"), self.tr("g_ch"), self.tr("b_ch"), self.tr("a_ch")]
+        vars_ = [self.custom_r, self.custom_g, self.custom_b, self.custom_a]
+        for i, (label, var) in enumerate(zip(lbls, vars_)):
+            lbl = ttk.Label(ch_frame, text=label)
+            lbl.grid(row=i, column=0, padx=5, pady=2, sticky=tk.W)
+            self.ch_labels.append(lbl)
             combo = ttk.Combobox(ch_frame, textvariable=var, values=TEXTURE_TYPES, state='readonly', width=18)
             combo.grid(row=i, column=1, padx=5, pady=2, sticky=tk.W)
             self.ch_combos.append(combo)
 
-        suffix_row = ttk.Frame(frame_pack)
+        suffix_row = ttk.Frame(self.frame_pack)
         suffix_row.pack(fill=tk.X, pady=(5,0))
-        ttk.Label(suffix_row, text="输出后缀:").pack(side=tk.LEFT)
+        self.lbl_suffix = ttk.Label(suffix_row, text=self.tr("suffix_label"))
+        self.lbl_suffix.pack(side=tk.LEFT)
         self.suffix_entry = ttk.Entry(suffix_row, textvariable=self.custom_suffix, width=12, font=self.default_font)
         self.suffix_entry.pack(side=tk.LEFT, padx=5)
 
         self.preset_combo.bind('<<ComboboxSelected>>', lambda e: self._on_preset_change())
 
-        # ---------- 进度与日志 ----------
+        # 进度与日志
         bottom = ttk.Frame(main)
         bottom.pack(fill=tk.BOTH, expand=True)
         self.progress = ttk.Progressbar(bottom, orient=tk.HORIZONTAL, mode='determinate')
@@ -183,11 +514,34 @@ class TextureProcessorApp:
             font=("Consolas", 9), bg='white'
         )
         self.log_area.pack(fill=tk.BOTH, expand=True)
+        self.btn_start = ttk.Button(main, text=self.tr("start_btn"), command=self._start)
+        self.btn_start.pack(pady=(10,0))
 
-        # ⚡ 开始按钮
-        ttk.Button(main, text="▶  开始批量处理", command=self._start).pack(pady=(10,0))
+    def _refresh_texts(self):
+        """刷新界面文字（菜单和标签）"""
+        self.root.title(self.tr("title"))
+        self.frame_dir.config(text="源文件夹 & 输出选项")
+        self.lbl_dir.config(text=self.tr("source_label"))
+        self.btn_browse.config(text=self.tr("browse"))
+        self.chk_overwrite.config(text=self.tr("overwrite"))
+        self.chk_alpha.config(text=self.tr("premul_alpha"))
+        self.chk_mip.config(text=self.tr("gen_mipmap"))
+        self.frame_res.config(text=self.tr("res_group"))
+        self.lbl_bc.config(text=self.tr("res_basecolor"))
+        self.lbl_n.config(text=self.tr("res_normal"))
+        self.lbl_pk.config(text=self.tr("res_packed"))
+        self.frame_pack.config(text=self.tr("packing_group"))
+        self.lbl_preset.config(text=self.tr("preset_label"))
+        self.btn_save_preset.config(text=self.tr("save_preset"))
+        self.btn_del_preset.config(text=self.tr("del_preset"))
+        # 更新通道标签
+        lbls = [self.tr("r_ch"), self.tr("g_ch"), self.tr("b_ch"), self.tr("a_ch")]
+        for lbl, text in zip(self.ch_labels, lbls):
+            lbl.config(text=text)
+        self.lbl_suffix.config(text=self.tr("suffix_label"))
+        self.btn_start.config(text=self.tr("start_btn"))
 
-    # -------------------- 预设管理 --------------------
+    # ---------------- 预设管理 ----------------
     def _update_preset_list(self):
         names = sorted(self.presets.keys())
         self.preset_combo['values'] = names
@@ -206,17 +560,16 @@ class TextureProcessorApp:
         self.custom_b.set(preset["B"])
         self.custom_a.set(preset["A"])
         self.custom_suffix.set(preset["suffix"])
-        # 控件始终可编辑
         for combo in self.ch_combos:
             combo.configure(state='readonly')
         self.suffix_entry.configure(state='normal')
 
     def _save_preset(self):
-        name = simpledialog.askstring("保存预设", "请输入预设名称（不可与内置同名）:")
+        name = simpledialog.askstring(self.tr("preset_save_title"), self.tr("preset_save_prompt"))
         if not name:
             return
         if name in DEFAULT_PRESETS:
-            messagebox.showerror("错误", "不能覆盖内置预设，请使用其他名称。")
+            messagebox.showerror(self.tr("dir_error"), self.tr("preset_overwrite"))
             return
         self.presets[name] = {
             "R": self.custom_r.get(),
@@ -228,27 +581,27 @@ class TextureProcessorApp:
         self._save_presets_to_file()
         self._update_preset_list()
         self.preset_var.set(name)
-        self._log(f"预设 '{name}' 已保存。")
+        self._log(self.tr("preset_saved").format(name=name))
 
     def _delete_preset(self):
         name = self.preset_var.get()
         if not name:
             return
         if name in DEFAULT_PRESETS:
-            messagebox.showerror("错误", "内置预设不可删除。")
+            messagebox.showerror(self.tr("dir_error"), self.tr("preset_overwrite"))
             return
-        if messagebox.askyesno("确认删除", f"确定要删除预设 '{name}' 吗？"):
+        if messagebox.askyesno(self.tr("del_preset"), self.tr("preset_delete_confirm").format(name=name)):
             del self.presets[name]
             self._save_presets_to_file()
             self._update_preset_list()
             if self.presets:
                 self.preset_var.set(next(iter(self.presets)))
             self._on_preset_change()
-            self._log(f"预设 '{name}' 已删除。")
+            self._log(self.tr("preset_deleted").format(name=name))
 
-    # -------------------- UI 辅助 --------------------
+    # ---------------- UI 操作 ----------------
     def _browse(self):
-        path = filedialog.askdirectory(title="选择资产根目录（包含子文件夹）")
+        path = filedialog.askdirectory(title=self.tr("browse"))
         if path:
             self.base_dir.set(path)
 
@@ -270,7 +623,7 @@ class TextureProcessorApp:
             return
         base = self.base_dir.get().strip()
         if not base or not Path(base).is_dir():
-            messagebox.showerror("错误", "请先选择有效的资产根目录")
+            messagebox.showerror(self.tr("dir_error"), self.tr("dir_error_msg"))
             return
 
         self.running = True
@@ -289,30 +642,24 @@ class TextureProcessorApp:
             subdirs = [d for d in base.iterdir() if d.is_dir()]
             total = len(subdirs)
             if total == 0:
-                self._log("❌ 未找到子文件夹，请检查目录结构。")
+                self._log(self.tr("no_folder"))
                 return
-            self._log(f"找到 {total} 个资产文件夹，开始处理...\n")
+            self._log(self.tr("found_folders").format(total))
             for i, folder in enumerate(subdirs, 1):
                 self._update_progress(i, total)
                 self._process_folder(folder)
             self._update_progress(total, total)
-            self._log("\n✅ 全部完成！")
+            self._log(self.tr("done"))
         except Exception as e:
             self._log(f"❌ 发生异常: {str(e)}")
         finally:
             self.running = False
 
-    # -------------------- 贴图处理核心 --------------------
+    # ---------------- 贴图处理 ----------------
     def _find_texture(self, folder: Path, type_key: str):
         if type_key == "None" or not type_key:
             return None
-        keywords = [type_key.lower()]
-        if type_key == "Metal":
-            keywords = ["metal", "metallic"]
-        elif type_key == "BaseColor":
-            keywords = ["basecolor", "base_color", "diffuse"]
-        elif type_key == "Normal":
-            keywords = ["normal", "norm"]
+        keywords = self.match_rules.get(type_key, [type_key.lower()])
         for f in folder.glob("*.jpg"):
             f_lower = f.name.lower()
             for kw in keywords:
@@ -330,13 +677,10 @@ class TextureProcessorApp:
             return False
 
         cmd = [TEXCONV, "-y", "-f", "R8G8B8A8_UNORM", "-if", "FANT"]
-
-        # 根据选项添加预乘和 Mipmap
         if self.premultiply_alpha.get():
             cmd.append("-pmalpha")
         if self.generate_mipmaps.get():
             cmd.extend(["-m", "0"])
-
         cmd.extend(["-o", str(tmp_dir), str(src_png)])
         subprocess.run(cmd, check=True, capture_output=True)
 
