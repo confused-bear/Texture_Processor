@@ -19,3 +19,6 @@
 4.点击开始批量处理，等待贴图处理完成
 
 ## 欢迎测试反馈
+
+本工具使用了 Microsoft 的 texconv.exe，它属于 DirectXTex 工具集的一部分。   Copyright (c) Microsoft Corporation.
+This tool uses Microsoft’s texconv.exe, which forms part of the DirectXTex toolset.   Copyright (c) Microsoft Corporation.
