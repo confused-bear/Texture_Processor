@@ -1,20 +1,17 @@
 import os
 import sys
 import subprocess
-import time
 import threading
 import json
 import re
 from pathlib import Path
 import tkinter as tk
-import tkinter.font as tkfont
 from tkinter import ttk, filedialog, messagebox, scrolledtext, simpledialog, Menu
 from PIL import Image
 import numpy as np
 
 # -------------------- 配置 --------------------
 if getattr(sys, 'frozen', False):
-    # 打包后，texconv.exe 应该被 PyInstaller 收集到临时目录
     TEXCONV = os.path.join(sys._MEIPASS, 'texconv.exe')
 else:
     TEXCONV = "texconv.exe"
@@ -56,7 +53,6 @@ DEFAULT_PRESETS = {
     "ORM":  {"R": "AO", "G": "Roughness", "B": "Metal", "A": "None", "suffix": "ORM"}
 }
 
-# 多语言字典（部分字段，完整见下方）
 STRINGS = {
     "zh": {
         "title": "PBR 贴图批量处理 & 通道打包工具",
@@ -67,8 +63,8 @@ STRINGS = {
         "premul_alpha": "半透明材质 (预乘Alpha)",
         "gen_mipmap": "生成 Mipmap",
         "res_group": "输出分辨率",
-        "res_basecolor": "BaseColor:",
-        "res_normal": "Normal:",
+        "res_basecolor": "基础颜色/漫反射贴图:",
+        "res_normal": "法线贴图:",
         "res_packed": "通道贴图:",
         "packing_group": "通道组合配置",
         "preset_label": "当前预设:",
@@ -103,7 +99,25 @@ STRINGS = {
         "rule_cancel": "取消",
         "rule_tip": "每行一个关键词，小写英文",
         "lang_restart_title": "语言更改",
-        "lang_restart_msg": "语言已更改，需要重启程序才能完全生效。\n是否立即重启？"
+        "lang_restart_msg": "语言已更改，需要重启程序才能完全生效。\n是否立即重启？",
+        "lang_restart_korean_msg": "语言已更改为韩语。\n请关闭本窗口后，重新运行程序即可生效。",
+        "log_skip_exist": "  ⏩ 跳过已存在: {name}",
+        "log_basecolor_ok": "  ✓ 基础颜色 -> {name}.dds",
+        "log_normal_ok": "  ✓ 法线贴图 -> {name}.dds",
+        "log_normal_missing": "  ⚠ 没有法线贴图",
+        "log_packed_ok": "  ✓ 通道贴图 -> {name}.dds",
+        "log_packed_missing": "  ⚠ 合成通道所需贴图全部缺失，跳过",
+        "log_basecolor_missing": "  ⚠ 缺少基础颜色贴图，跳过",
+        "log_folder_header": "📁 {name}",
+        "pause": "暂停",
+        "resume": "继续",
+        "cancel": "取消",
+        "cancel_confirm": "确定要取消当前任务吗？",
+        "delete_files_confirm": "是否删除本次处理已生成的所有 DDS 文件？",
+        "paused_msg": "⏸️ 已暂停",
+        "resumed_msg": "▶️ 继续处理",
+        "cancelled_msg": "❌ 处理已取消",
+        "task_running": "任务正在进行中...",
     },
     "en": {
         "title": "PBR Texture Batch Processor & Channel Packer",
@@ -150,7 +164,25 @@ STRINGS = {
         "rule_cancel": "Cancel",
         "rule_tip": "One keyword per line, lowercase English",
         "lang_restart_title": "Language Changed",
-        "lang_restart_msg": "Language has been changed. Restart the program to apply.\nRestart now?"
+        "lang_restart_msg": "Language has been changed. Restart the program to apply.\nRestart now?",
+        "lang_restart_korean_msg": "Language changed to Korean.\nPlease close this window and reopen the program to apply.",
+        "log_skip_exist": "  ⏩ Skipped: {name} already exists",
+        "log_basecolor_ok": "  ✓ BaseColor -> {name}.dds",
+        "log_normal_ok": "  ✓ Normal -> {name}.dds",
+        "log_normal_missing": "  ⚠ Normal map not found",
+        "log_packed_ok": "  ✓ Packed map -> {name}.dds",
+        "log_packed_missing": "  ⚠ No source maps for packing, skipped",
+        "log_basecolor_missing": "  ⚠ BaseColor missing, skipped",
+        "log_folder_header": "📁 {name}",
+        "pause": "Pause",
+        "resume": "Resume",
+        "cancel": "Cancel",
+        "cancel_confirm": "Are you sure you want to cancel the current task?",
+        "delete_files_confirm": "Delete all generated DDS files from this session?",
+        "paused_msg": "⏸️ Paused",
+        "resumed_msg": "▶️ Resumed",
+        "cancelled_msg": "❌ Processing cancelled",
+        "task_running": "Task is already running...",
     },
     "ja": {
         "title": "PBRテクスチャバッチ処理＆チャンネルパッカー",
@@ -197,7 +229,25 @@ STRINGS = {
         "rule_cancel": "キャンセル",
         "rule_tip": "1行に1キーワード、小文字の英語",
         "lang_restart_title": "言語変更",
-        "lang_restart_msg": "言語が変更されました。再起動しますか？\n今すぐ再起動しますか？"
+        "lang_restart_msg": "言語が変更されました。再起動しますか？\n今すぐ再起動しますか？",
+        "lang_restart_korean_msg": "言語が韓国語に変更されました。\nこのウィンドウを閉じてプログラムを再起動してください。",
+        "log_skip_exist": "  ⏩ スキップ: {name} は既に存在します",
+        "log_basecolor_ok": "  ✓ ベースカラー -> {name}.dds",
+        "log_normal_ok": "  ✓ ノーマル -> {name}.dds",
+        "log_normal_missing": "  ⚠ ノーマルマップが見つかりません",
+        "log_packed_ok": "  ✓ パックマップ -> {name}.dds",
+        "log_packed_missing": "  ⚠ パック用のソースマップがありません、スキップ",
+        "log_basecolor_missing": "  ⚠ ベースカラーが見つかりません、スキップ",
+        "log_folder_header": "📁 {name}",
+        "pause": "一時停止",
+        "resume": "再開",
+        "cancel": "キャンセル",
+        "cancel_confirm": "現在のタスクをキャンセルしますか？",
+        "delete_files_confirm": "このセッションで生成されたDDSファイルをすべて削除しますか？",
+        "paused_msg": "⏸️ 一時停止中",
+        "resumed_msg": "▶️ 再開しました",
+        "cancelled_msg": "❌ 処理がキャンセルされました",
+        "task_running": "タスクは既に実行中です...",
     },
     "ko": {
         "title": "PBR 텍스처 배치 처리 및 채널 패커",
@@ -244,7 +294,25 @@ STRINGS = {
         "rule_cancel": "취소",
         "rule_tip": "한 줄에 하나의 키워드, 소문자 영어",
         "lang_restart_title": "언어 변경",
-        "lang_restart_msg": "언어가 변경되었습니다. 프로그램을 다시 시작해야 적용됩니다.\n지금 다시 시작하시겠습니까?"
+        "lang_restart_msg": "언어가 변경되었습니다. 프로그램을 다시 시작해야 적용됩니다.\n지금 다시 시작하시겠습니까?",
+        "lang_restart_korean_msg": "언어가 한국어로 변경되었습니다.\n이 창을 닫고 프로그램을 다시 실행하세요.",
+        "log_skip_exist": "  ⏩ 건너뜀: {name} 이미 존재함",
+        "log_basecolor_ok": "  ✓ 베이스컬러 -> {name}.dds",
+        "log_normal_ok": "  ✓ 노멀 -> {name}.dds",
+        "log_normal_missing": "  ⚠ 노멀 맵을 찾을 수 없음",
+        "log_packed_ok": "  ✓ 패킹 맵 -> {name}.dds",
+        "log_packed_missing": "  ⚠ 패킹할 소스 맵이 없음, 건너뜀",
+        "log_basecolor_missing": "  ⚠ 베이스컬러 누락, 건너뜀",
+        "log_folder_header": "📁 {name}",
+        "pause": "일시정지",
+        "resume": "계속",
+        "cancel": "취소",
+        "cancel_confirm": "현재 작업을 취소하시겠습니까?",
+        "delete_files_confirm": "이번 세션에서 생성된 모든 DDS 파일을 삭제하시겠습니까?",
+        "paused_msg": "⏸️ 일시정지됨",
+        "resumed_msg": "▶️ 계속합니다",
+        "cancelled_msg": "❌ 처리 취소됨",
+        "task_running": "작업이 이미 실행 중입니다...",
     }
 }
 
@@ -252,17 +320,15 @@ STRINGS = {
 class TextureProcessorApp:
     def __init__(self, root):
         self.root = root
-        # 先创建语言变量，再加载文件
         self.lang = tk.StringVar(value="zh")
         self._load_language()
-        self.current_lang = self.lang.get()         
+        self.current_lang = self.lang.get()
         self.lang.trace_add('write', self._on_lang_change_full)
-        self.korean_available = self._check_korean_font()
 
         self._load_match_rules()
 
         self.root.title(self.tr("title"))
-        self.root.geometry("720x820")
+        self.root.geometry("720x850")
         self.root.resizable(True, True)
         self.root.configure(bg='#f5f5f5')
 
@@ -279,7 +345,6 @@ class TextureProcessorApp:
         style.configure('TCombobox', font=self.default_font)
         style.configure('TLabelframe.Label', font=self.bold_font)
 
-        # 变量
         self.base_dir = tk.StringVar()
         self.overwrite = tk.BooleanVar(value=False)
         self.bc_res = tk.StringVar(value="4K")
@@ -296,6 +361,12 @@ class TextureProcessorApp:
         self.custom_suffix = tk.StringVar(value="ORDp")
 
         self.running = False
+        self.paused = threading.Event()
+        self.paused.set()
+        self.cancelled = False
+        self.generated_files = []
+        self.file_lock = threading.Lock()
+
         self.presets = self._load_presets()
 
         if not self._check_texconv():
@@ -321,26 +392,23 @@ class TextureProcessorApp:
             except Exception:
                 pass
 
-    def _check_korean_font(self):
-        try:
-            test_font = tkfont.Font(family="Malgun Gothic", size=10)
-            test_font.measure("한글")   # 如果能测量说明字体可用
-            return True
-        except Exception:
-            return False
-    
     def _on_lang_change_full(self, *args):
         new_lang = self.lang.get()
         if new_lang == self.current_lang:
             return
         self._save_language()
-        if messagebox.askyesno(
-            self.tr("lang_restart_title"),
-            self.tr("lang_restart_msg")
-        ):
-            self._restart_program()
-        else:
+
+        if new_lang == "ko":
+            messagebox.showinfo(
+                self.tr("lang_restart_title"),
+                self.tr("lang_restart_korean_msg")
+            )
             self.root.destroy()
+            sys.exit(0)
+        else:
+            self.current_lang = new_lang
+            self._refresh_texts()
+            self._rebuild_menu()
 
     def _save_language(self):
         with open(LANG_FILE, 'w', encoding='utf-8') as f:
@@ -380,41 +448,7 @@ class TextureProcessorApp:
         with open(PRESET_FILE, 'w', encoding='utf-8') as f:
             json.dump(self.presets, f, indent=2, ensure_ascii=False)
 
-    # 重启程序
-    def _restart_program(self):
-        try:
-            if getattr(sys, 'frozen', False):
-                exe = sys.executable
-                # Windows 下使用 DETACHED_PROCESS 标志让新进程脱离控制台/父进程
-                if sys.platform == "win32":
-                    subprocess.Popen(
-                        [exe],
-                        creationflags=subprocess.DETACHED_PROCESS,
-                        close_fds=True
-                    )
-                else:
-                    subprocess.Popen([exe], close_fds=True)
-            else:
-                python = sys.executable
-                script = sys.argv[0]
-                if sys.platform == "win32":
-                    subprocess.Popen(
-                        [python, script],
-                        creationflags=subprocess.DETACHED_PROCESS,
-                        close_fds=True
-                    )
-                else:
-                    subprocess.Popen([python, script], close_fds=True)
-
-            # 立即强制退出，不给 PyInstaller 清理临时目录的机会（避免冲突）
-            os._exit(0)
-        except Exception as e:
-            messagebox.showerror("重启失败", f"无法自动重启，请手动重新打开。\n错误：{e}")
-            self.root.destroy()
-            os._exit(1)
-
     # ---------------- 菜单 ----------------
-
     def _build_menu(self):
         menubar = Menu(self.root)
         self.root.config(menu=menubar)
@@ -423,22 +457,18 @@ class TextureProcessorApp:
         lang_menu.add_radiobutton(label="中文", variable=self.lang, value="zh")
         lang_menu.add_radiobutton(label="English", variable=self.lang, value="en")
         lang_menu.add_radiobutton(label="日本語", variable=self.lang, value="ja")
-        if self.korean_available:
-            lang_menu.add_radiobutton(label="한국어", variable=self.lang, value="ko")
+        lang_menu.add_radiobutton(label="한국어", variable=self.lang, value="ko")
         menubar.add_cascade(label=self.tr("lang_menu"), menu=lang_menu)
 
-        # 高级菜单
         adv_menu = Menu(menubar, tearoff=0)
         adv_menu.add_command(label=self.tr("rules_menu"), command=self._edit_rules)
         menubar.add_cascade(label=self.tr("adv_menu"), menu=adv_menu)
 
-        # 帮助菜单
         help_menu = Menu(menubar, tearoff=0)
         help_menu.add_command(label=self.tr("about_menu"), command=self._show_about)
         menubar.add_cascade(label=self.tr("help_menu"), menu=help_menu)
 
     def _rebuild_menu(self):
-        # 删除旧菜单并重建
         self.root.config(menu=None)
         self._build_menu()
 
@@ -455,7 +485,6 @@ class TextureProcessorApp:
         text = tk.Text(frame, wrap=tk.WORD, font=("Consolas", 10))
         text.pack(fill=tk.BOTH, expand=True, pady=5)
 
-        # 加载当前规则
         for tex_type in self.match_rules:
             text.insert(tk.END, f"[{tex_type}]\n")
             for kw in self.match_rules[tex_type]:
@@ -577,8 +606,17 @@ class TextureProcessorApp:
         # 进度与日志
         bottom = ttk.Frame(main)
         bottom.pack(fill=tk.BOTH, expand=True)
+
         self.progress = ttk.Progressbar(bottom, orient=tk.HORIZONTAL, mode='determinate')
         self.progress.pack(fill=tk.X, pady=(0,5))
+
+        ctrl_frame = ttk.Frame(bottom)
+        ctrl_frame.pack(fill=tk.X, pady=(0,5))
+        self.btn_pause = ttk.Button(ctrl_frame, text=self.tr("pause"), command=self._toggle_pause, state='disabled')
+        self.btn_pause.pack(side=tk.LEFT, padx=5)
+        self.btn_cancel = ttk.Button(ctrl_frame, text=self.tr("cancel"), command=self._cancel_process, state='disabled')
+        self.btn_cancel.pack(side=tk.LEFT, padx=5)
+
         self.log_area = scrolledtext.ScrolledText(
             bottom, height=8, state='disabled', wrap=tk.WORD,
             font=("Consolas", 9), bg='white'
@@ -588,7 +626,6 @@ class TextureProcessorApp:
         self.btn_start.pack(pady=(10,0))
 
     def _refresh_texts(self):
-        """刷新界面文字（菜单和标签）"""
         self.root.title(self.tr("title"))
         self.frame_dir.config(text=self.tr("source_group"))
         self.lbl_dir.config(text=self.tr("source_label"))
@@ -604,12 +641,18 @@ class TextureProcessorApp:
         self.lbl_preset.config(text=self.tr("preset_label"))
         self.btn_save_preset.config(text=self.tr("save_preset"))
         self.btn_del_preset.config(text=self.tr("del_preset"))
-        # 更新通道标签
         lbls = [self.tr("r_ch"), self.tr("g_ch"), self.tr("b_ch"), self.tr("a_ch")]
         for lbl, text in zip(self.ch_labels, lbls):
             lbl.config(text=text)
         self.lbl_suffix.config(text=self.tr("suffix_label"))
         self.btn_start.config(text=self.tr("start_btn"))
+        if self.running and self.paused.is_set():
+            self.btn_pause.config(text=self.tr("pause"))
+        elif self.running:
+            self.btn_pause.config(text=self.tr("resume"))
+        else:
+            self.btn_pause.config(text=self.tr("pause"))
+        self.btn_cancel.config(text=self.tr("cancel"))
 
     # ---------------- 预设管理 ----------------
     def _update_preset_list(self):
@@ -687,9 +730,35 @@ class TextureProcessorApp:
         self.progress['value'] = value
         self.root.update_idletasks()
 
+    def _toggle_pause(self):
+        if self.paused.is_set():
+            self.paused.clear()
+            self.btn_pause.config(text=self.tr("resume"))
+            self._log(self.tr("paused_msg"))
+        else:
+            self.paused.set()
+            self.btn_pause.config(text=self.tr("pause"))
+            self._log(self.tr("resumed_msg"))
+
+    def _cancel_process(self):
+        if not self.running:
+            return
+        if messagebox.askyesno(self.tr("cancel"), self.tr("cancel_confirm")):
+            self.cancelled = True
+            self.paused.set()
+            if messagebox.askyesno(self.tr("cancel"), self.tr("delete_files_confirm")):
+                with self.file_lock:
+                    for fpath in self.generated_files:
+                        try:
+                            Path(fpath).unlink()
+                        except Exception:
+                            pass
+                    self.generated_files.clear()
+            self._log(self.tr("cancelled_msg"))
+
     def _start(self):
         if self.running:
-            messagebox.showwarning("提示", "任务正在进行中...")
+            messagebox.showwarning("提示", self.tr("task_running"))
             return
         base = self.base_dir.get().strip()
         if not base or not Path(base).is_dir():
@@ -697,6 +766,11 @@ class TextureProcessorApp:
             return
 
         self.running = True
+        self.cancelled = False
+        self.generated_files = []
+        self.paused.set()
+        self.btn_pause.configure(state='normal', text=self.tr("pause"))
+        self.btn_cancel.configure(state='normal')
         self._clear_log()
         self.progress['value'] = 0
         threading.Thread(target=self._run_process, args=(base,), daemon=True).start()
@@ -716,14 +790,20 @@ class TextureProcessorApp:
                 return
             self._log(self.tr("found_folders").format(total))
             for i, folder in enumerate(subdirs, 1):
+                if self.cancelled:
+                    break
+                self.paused.wait()
                 self._update_progress(i, total)
                 self._process_folder(folder)
             self._update_progress(total, total)
-            self._log(self.tr("done"))
+            if not self.cancelled:
+                self._log(self.tr("done"))
         except Exception as e:
             self._log(f"❌ 发生异常: {str(e)}")
         finally:
             self.running = False
+            self.btn_pause.configure(state='disabled')
+            self.btn_cancel.configure(state='disabled')
 
     # ---------------- 贴图处理 ----------------
     def _find_texture(self, folder: Path, type_key: str):
@@ -743,7 +823,7 @@ class TextureProcessorApp:
     def _save_dds(self, src_png, final_name, output_dir, tmp_dir, overwrite):
         final_dds = output_dir / f"{final_name}.dds"
         if final_dds.exists() and not overwrite:
-            self._log(f"  ⏩ 跳过已存在: {final_dds.name}")
+            self._log(self.tr("log_skip_exist").format(name=final_dds.name))
             return False
 
         cmd = [TEXCONV, "-y", "-f", "R8G8B8A8_UNORM", "-if", "FANT"]
@@ -758,6 +838,9 @@ class TextureProcessorApp:
         if final_dds.exists():
             final_dds.unlink()
         generated.rename(final_dds)
+
+        with self.file_lock:
+            self.generated_files.append(str(final_dds))
         return True
 
     def _clean_basename(self, bc_path):
@@ -770,13 +853,13 @@ class TextureProcessorApp:
 
     def _process_folder(self, folder):
         fname = folder.name
-        self._log(f"📁 {fname}")
+        self._log(self.tr("log_folder_header").format(name=fname))
 
         bc_path = self._find_texture(folder, "BaseColor")
         n_path = self._find_texture(folder, "Normal")
 
         if not bc_path:
-            self._log("  ⚠ 缺少 BaseColor，跳过")
+            self._log(self.tr("log_basecolor_missing"))
             return
 
         tmp_dir = folder / "_temp"
@@ -790,7 +873,7 @@ class TextureProcessorApp:
             bc_png = tmp_dir / "bc_temp.png"
             bc_resized.save(bc_png)
             if self._save_dds(bc_png, bc_path.stem, folder, tmp_dir, self.overwrite.get()):
-                self._log(f"  ✓ BaseColor -> {bc_path.stem}.dds")
+                self._log(self.tr("log_basecolor_ok").format(name=bc_path.stem))
 
             # Normal
             if n_path:
@@ -801,9 +884,9 @@ class TextureProcessorApp:
                 n_resized.save(n_png)
                 n_stem = re.sub(r'_[24]K', f'_{self.n_res.get()}', n_path.stem, flags=re.IGNORECASE)
                 if self._save_dds(n_png, n_stem, folder, tmp_dir, self.overwrite.get()):
-                    self._log(f"  ✓ Normal -> {n_stem}.dds")
+                    self._log(self.tr("log_normal_ok").format(name=n_stem))
             else:
-                self._log("  ⚠ 没有法线贴图")
+                self._log(self.tr("log_normal_missing"))
 
             # 合成通道
             ch_r = self.custom_r.get()
@@ -818,7 +901,7 @@ class TextureProcessorApp:
             tex_a = self._find_texture(folder, ch_a) if ch_a != "None" else None
 
             if not any([tex_r, tex_g, tex_b, tex_a]):
-                self._log("  ⚠ 合成通道所需贴图全部缺失，跳过")
+                self._log(self.tr("log_packed_missing"))
             else:
                 pack_size = RES_MAP[self.pack_res.get()]
                 packed = np.zeros((pack_size, pack_size, 4), dtype=np.uint8)
@@ -838,7 +921,7 @@ class TextureProcessorApp:
                 res_tag = self.pack_res.get()
                 out_name = f"{clean_base}_{res_tag}_{suffix}"
                 if self._save_dds(packed_png, out_name, folder, tmp_dir, self.overwrite.get()):
-                    self._log(f"  ✓ 通道贴图 -> {out_name}.dds")
+                    self._log(self.tr("log_packed_ok").format(name=out_name))
 
         except Exception as e:
             self._log(f"  ❌ 失败: {str(e)}")
